@@ -55,6 +55,7 @@ TFT_eSPI_Button btMemF[7];         // botones lista memorias visibles, frequency
 TFT_eSPI_Button btSmeter[2];       // botones Smeter
 TFT_eSPI_Button btMenuNav[20];     // botones selección pantalla
 TFT_eSPI_Button btFilter[3];       // botones filtro audio
+TFT_eSPI_Button btFunction[1];     // boton function
 
 byte btMainact[10]={0,0,0,0,0,0,0,0,0,0};
 uint16_t btMaincol[10]={TFT_RED,TFT_YELLOW,TFT_YELLOW,TFT_YELLOW,TFT_YELLOW,TFT_YELLOW,TFT_CYAN,TFT_ORANGE,TFT_YELLOW,TFT_YELLOW};
@@ -87,6 +88,7 @@ byte btNavact[5]={1,1,1,1,0};
 byte btFlotact[5]={1,1,1,1,1};
 byte btYNact[3]={1,1,1};
 byte btFilteract[3]={1,1,1};       // botones filtro audio
+byte btFuntcionact[1]={1};     // botones ffunction
 byte btMenuNavact[20]={1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0};
 char btMaintext[10][6]={"ATU","V/M","Band-","Band+","LSB","CW","RIT","SPL","IFS","ATT"};
 char btCaltext[5][11]={"Calibrati.","Adj. BFO","xxx","xxx","Reset Fact"};
@@ -110,6 +112,7 @@ char btNavtext[5][8]={"H","<",">","M","xxx"};
 char btFlottext[5][6]={"Ent","Scan-","Scan+","Lock",">MEM"};
 char btYNtext[3][6]={"OK","ESC","<--"};
 char btFiltertext[3][6]={"<",">","|"};
+char btFunctiontext[1][6]={"F"};
 char btKeytextL[50][3]={"0","1","2","3","4","5","6","7","8","9",
                         "a","b","c","d","e","f","g","h","i","j",
                         "k","l","m","n","ñ","o","p","q","r","s",
@@ -1297,14 +1300,23 @@ void displaybtFilter()      // botones filtro
     {
     char buff[5];
     itoa(conf.audiolower, buff, 10);
-    btFilter[0].initButtonUL(&tft,10,40,30,15,2,modeencoder==1?TFT_YELLOW:TFT_WHITE,TFT_BLACK,buff,1);
+    btFilter[0].initButtonUL(&tft,10,40,30,15,2,modeencoder==4?TFT_YELLOW:TFT_WHITE,TFT_BLACK,buff,1);
     btFilter[0].drawButton();
     itoa(conf.audioupper, buff, 10);
-    btFilter[1].initButtonUL(&tft,230,40,30,15,2,modeencoder==2?TFT_YELLOW:TFT_WHITE,TFT_BLACK,buff,1);
+    btFilter[1].initButtonUL(&tft,230,40,30,15,2,modeencoder==5?TFT_YELLOW:TFT_WHITE,TFT_BLACK,buff,1);
     btFilter[1].drawButton();
     itoa(conf.audiopitch, buff, 10);
-    btFilter[2].initButtonUL(&tft,126,40,30,15,2,modeencoder==3?TFT_YELLOW:TFT_WHITE,TFT_BLACK,buff,1);
+    btFilter[2].initButtonUL(&tft,126,40,30,15,2,modeencoder==6?TFT_YELLOW:TFT_WHITE,TFT_BLACK,buff,1);
     btFilter[2].drawButton();
+    }
+}
+
+void displaybtFunction()      // botones function
+{
+  if (conf.framemode==0)
+    {
+    btFunction[0].initButtonUL(&tft,275,210,40,30,2,modefunction==1?TFT_YELLOW:TFT_WHITE,TFT_BLACK,btFunctiontext[0],2);
+    btFunction[0].drawButton();
     }
 }
 
@@ -1343,51 +1355,77 @@ void displayFreqs()
   tft.drawString("Cal",170,193); drawNumberB(conf.calibration,230,180,100,22,TFT_BLACK,TFT_WHITE,2); 
 }
 
+byte tabspectrum[MAXLINESWATERFALL][BUFFER_I2C_LEN];
+uint32_t colorniv[10]={TFT_BLACK, TFT_NAVY, TFT_BLUE, TFT_CYAN, TFT_CYAN, TFT_GREEN, TFT_GREEN, TFT_YELLOW, TFT_ORANGE, TFT_RED};
+
 void displayWaterfall(int x, int y, int w, int h)
 {
-  tft.drawRect(x,y+10,w,h,TFT_WHITE);   // waterfall
+  if (waterfallenable==0) return;
+  // traza waterfall
+  for (int j=0; j<h; j++)    // líneas
+    {
+    int jplusy=j+y;
+    for (int i=0; i<BUFFER_I2C_LEN; i++)    // puntos de la línea
+      {
+      tft.drawPixel(i+x, jplusy, colorniv[tabspectrum[j][i]/1]); 
+      }
+    }
 }
 
-void displaySpectrum(int x, int y, int w, int h)
+void displaySpectrum(int x, int y, int w, int h, int resol)
 {
-  tft.fillRect(x,y,w,h,TFT_BLACK);
+  int xwdiv2=x+w/2;
+  int yminus15=y-15;
+  int yminus25=y-25;
+  resol=2;
   tft.setTextSize(1);
   drawStringB("Khz",x+60,y-13,30,12,TFT_BLACK,TFT_WHITE,1);
   drawStringB("Khz",x+180,y-13,30,12,TFT_BLACK,TFT_WHITE,1);
-  drawNumberB(conf.frequency/1000-12,x,y-13,40,12,TFT_BLACK,TFT_WHITE,1);
+  drawNumberB(conf.frequency/1000-6*resol,x,y-13,40,12,TFT_BLACK,TFT_WHITE,1);
   drawNumberB(conf.frequency/1000,x+w/2-15,y-13,40,12,TFT_BLACK,TFT_WHITE,1);
-  drawNumberB(conf.frequency/1000+12,x+w-40,y-13,40,12,TFT_BLACK,TFT_WHITE,1);
-  tft.fillRect(x+w/2+audiolowerold/100, y-h, (audioupperold/100)-(audiolowerold/100), h-15,TFT_BLACK);
-  tft.fillRect(x+w/2+conf.audiolower/100, y-h, (conf.audioupper/100)-(conf.audiolower/100), h-15,TFT_DARKGREY);
-  tft.drawLine(x+w/2+audiopitchold/100,y-h,x+w/2+audiopitchold/100,y-15,TFT_BLACK);
+  drawNumberB(conf.frequency/1000+6*resol,x+w-40,y-13,40,12,TFT_BLACK,TFT_WHITE,1);
+  tft.fillRect(xwdiv2+audiolowerold/(50*resol), y-h, (audioupperold-audiolowerold)/(50*resol), h-15,TFT_BLACK);
+  tft.fillRect(xwdiv2+conf.audiolower/(50*resol), y-h, (conf.audioupper-conf.audiolower)/(50*resol), h-15,TFT_DARKGREY);
+  tft.drawLine(xwdiv2+audiopitchold/(50*resol),y-h,x+w/2+audiopitchold/(50*resol),y-15,TFT_BLACK);
   for (int i=0; i<12; i++)    // líneas bajas cada 1 kHz
     {
-    tft.drawLine(x+w/2+(i*10),y-15,x+w/2+(i*10),y-25,TFT_DARKGREY);
-    tft.drawLine(x+w/2-(i*10),y-15,x+w/2-(i*10),y-25,TFT_DARKGREY);
+    int ipor10=i*10;
+    tft.drawFastVLine(xwdiv2+ipor10, yminus25, 10, TFT_DARKGREY);
+    tft.drawFastVLine(xwdiv2-ipor10, yminus25, 10, TFT_DARKGREY);
     }
-  for (int i=0; i<w; i++) 
+  int yaux = y-16;
+  for (int i=0; i<w; i++)     // gráfica
     { 
-      tft.drawLine(x+i,y-16,x+i,y-16-spval[i],TFT_GREEN);  
+      int xaux = x+i;
+      tft.drawFastVLine(xaux,yaux-spvalold[i],spvalold[i],TFT_BLACK);
+      tft.drawFastVLine(xaux,yaux-spval[i],spval[i],TFT_GREEN);
     } 
-  if (maxvalspectrum>0)
-    {
-    tft.drawLine(maxvalspectrum,90,maxvalspectrum,124-spval[maxvalspectrum],TFT_YELLOW);  // valor máximo
-    drawNumberB(conf.frequency/1000-12+maxvalspectrum, maxvalspectrum+1, 90,90,12,TFT_DARKGREY,TFT_YELLOW,1);
-    }
   tft.drawLine(x+w/2,y-h-5,x+w/2,y-15,TFT_WHITE);
   tft.drawLine(x,y-15,x+w,y-15,TFT_WHITE);
-  
-  tft.drawLine(x+w/2+conf.audiopitch/100,y-h,x+w/2+conf.audiopitch/100,y-15,TFT_GREEN);
+  tft.drawLine(x+w/2+conf.audiopitch/(50*resol),y-h,x+w/2+conf.audiopitch/(50*resol),y-15,TFT_RED);
+  // calcula valores waterfall
+  for (int i=0; i<MAXLINESWATERFALL-1; i++)   // scroll lines down
+    {
+    int MAXWFminusiminus1=MAXLINESWATERFALL-i-1;
+    int MAXWFminusiminus2=MAXWFminusiminus1-1;
+    for (int j=0; j<BUFFER_I2C_LEN; j++)
+      tabspectrum[MAXWFminusiminus1][j] = tabspectrum[MAXWFminusiminus2][j];   
+    }
+  for (int i=0; i<BUFFER_I2C_LEN; i++)
+    {
+    tabspectrum[0][i] = (byte)(spval[i]);  
+    }
 }
 
 void displayFrame()
 {
   if (conf.framemode==0) 
     {
-      displaySpectrum(10,135,250,70);
-      displayWaterfall(10,130,250,60);
+      displaySpectrum(10,135,256,70,1);
+      displayWaterfall(10,138,256,MAXLINESWATERFALL);
       displaybtFilter();
-    }
+      displaybtFunction();
+}
   else if (conf.framemode==1) displaySmeter(190,210,50,1);
   else if (conf.framemode==2) displayFreqs();
 }
@@ -1409,8 +1447,6 @@ void updateDisplay(byte alldata) {
   clearTFT();
   if (tftpage==0)   // Main page
     {
-    //btMaincol[9]=conf.attLevel!=0?TFT_YELLOW:TFT_WHITE; // ATT
-    //Serial2.print("Updatedisplay  attLevel="); Serial2.println(conf.attLevel);
     if (alldata==1) 
       {
       displayMain();    // 10 botones principales
@@ -1421,7 +1457,7 @@ void updateDisplay(byte alldata) {
         {
         displayFrame();
         }
-      if (conf.framemode==1)      // analog meters
+      else if (conf.framemode==1)      // analog meters
         {
         if (inTx==0) { displaySmeter(190,210,50,1);}
         displayIFS(0,40,185);
@@ -1432,7 +1468,20 @@ void updateDisplay(byte alldata) {
       else if (conf.framemode==2) 
         { displayFreqs(); }  // frequencies
       }
-    displayFreq(0,1,1,1);   // frecuencia
+    if (modeencoder==0)
+      {
+      displayFreq(0,1,1,1);   // tunning
+      }
+    else if (modeencoder==4)  //
+      {
+      displayFreq(0,1,1,1);   // filter low
+      }
+    else if (modeencoder==5)  // filter high
+      {
+      }
+    else if (modeencoder==6)  // pitch
+      {
+      }
     }
   else if (tftpage==1) { displayUSERSet(); displayNav(); }   // Setup User
   else if (tftpage==2) { displaySetRad();  displayNav(); }   // Setup radio
@@ -1533,7 +1582,7 @@ long getNumberTFT(long valini, byte len, char *tunits)
         {
         if (btKey[i].contains(x,y)) 
           {
-          delay(100);
+          //delay(100);
           if (strlen(auxtft)<len)
             {
             strcat(auxtft, itoa(i,buff,10));
@@ -1773,15 +1822,30 @@ void checkFilterButtons(uint16_t x, uint16_t y)
       { 
       if (i==0) 
         { 
-        if (modeencoder==1) modeencoder=0; else modeencoder=1;
+        if (modeencoder==4) modeencoder=0; else modeencoder=4;
         }
       else if (i==1) 
         { 
-        if (modeencoder==2) modeencoder=0; else modeencoder=2;
+        if (modeencoder==5) modeencoder=0; else modeencoder=5;
         }
       else if (i==2)
         {
-        if (modeencoder==3) modeencoder=0; else modeencoder=3;
+        if (modeencoder==6) modeencoder=0; else modeencoder=6;
+        }
+      tftpage=0; 
+      updateDisplay(1);
+      } 
+    }
+}
+void checkFunctionButtons(uint16_t x, uint16_t y)
+{
+  for (byte i=0; i<1; i++)    // check function button
+    { 
+    if (btFunction[i].contains(x,y)) 
+      { 
+      if (i==0) 
+        { 
+        if (modefunction==0) modefunction=1; else modefunction=0;
         }
       tftpage=0; 
       updateDisplay(1);
@@ -2230,13 +2294,13 @@ void checkFILTButtons(uint16_t x, uint16_t y)
         { 
         audiolowerold=conf.audiolower;
         conf.audiolower=getValByKnob(1, conf.audiolower, 0, 1500, 10, "SSB lower", 3); 
-        setFilterLyraT(conf.audiolower,conf.audioupper);
+        sendFilterLyraT(conf.audiolower,conf.audioupper);
         }    
       else if (i==2) 
         { 
         audioupperold=conf.audioupper;
         conf.audioupper=getValByKnob(1, conf.audioupper, 1600, 5000, 10, "SSB upper.", 3); 
-        setFilterLyraT(conf.audiolower,conf.audioupper);
+        sendFilterLyraT(conf.audiolower,conf.audioupper);
         }    
       saveconf(); 
       updateDisplay(1);
@@ -2470,6 +2534,7 @@ void handletfttouch()
       checkFlotButtons(x,y);
       if (keylock==1) return;
       checkFilterButtons(x,y);
+      checkFunctionButtons(x,y);
       checkFreqButtons(x,y);
       checkMainButtons(x,y);
       checkVFOButtons(x,y);

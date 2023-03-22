@@ -45,7 +45,8 @@
 #define BMP085_ADDRESS 0x77  // I2C address of BMP085
 #define LYRAT_ADDRESS 0x32   // I2C address of LyraT
 #define i2ctimeout 200
-
+#define BUFFER_I2C_LEN 255
+#define MAXLINESWATERFALL 60
 //////////////////////////////////////////////////////////////////////
 ////// textos, deben coincidir con los textos del fichero spanish.txt/english.txt/otros idiomas
 #define Act 1

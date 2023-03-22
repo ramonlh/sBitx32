@@ -275,6 +275,7 @@ void calcindices(int i)
 
 void initSerial2(long baud) { Serial2.begin(baud, SERIAL_8N2, RXD2, TXD2); Serial2.flush(); }
 
+
 boolean checkfile(char* namefile)
 {  if (!SPIFFS.exists(namefile)) { s2(namefile); s2(" no existe");  s2(crlf); return false; }  return true; }
 

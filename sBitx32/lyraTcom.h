@@ -1,11 +1,13 @@
 
-#define BUFFER_I2C_LEN 255;
-
 typedef struct {    // datos I2C lyraT
       uint8_t comtype;
       uint16_t min_f;    // lim inferior filtro
       uint16_t max_f;    // lim superior filtro
-      uint16_t gain;    // lim superior filtro
+      uint16_t gain;     // gain
+      uint16_t spscale;  // spectrum scale
+      uint16_t volume;   // volume
+      uint16_t ssbmode;  // lsb/usb
+      uint16_t cwmode;   // cwmode
 } datalyratype;
       datalyratype datalyra;
       uint8_t *bufflyra = (uint8_t *) &datalyra; // acceder a datalyratype como bytes
@@ -14,22 +16,32 @@ int sendtoLyraT(int valueType)
 {
   if (valueType > 0)
     {
-    Serial2.print("Send to LyraT:"); Serial2.println(datalyra.comtype);
+    datalyra.comtype=valueType;
     Wire.beginTransmission(LYRAT_ADDRESS);  
     Wire.write(bufflyra, sizeof(datalyra));                  
     Wire.endTransmission();
-    Wire.requestFrom(LYRAT_ADDRESS, 255, 1);
-    Serial2.print("Rec form LyraT:"); 
-    while(Wire.available()) {
-      byte c = Wire.read();    // Receive a byte as character
-      Serial2.print(c);        // Print the character
+    if (datalyra.comtype==3)  // spectrum
+      {
+        ////////////////////////////////////////////////////
+      long tini=millis();
+      int count=0;
+      int bytesrec = Wire.requestFrom(LYRAT_ADDRESS, BUFFER_I2C_LEN, 1);
+      while(Wire.available()) {
+        spvalold[count] = spval[count];
+        spval[count] = Wire.read();
+        if (spval[count]>60) spval[count]=60;
+        count++;
+        }
+      //Serial2.print("  Time:"); Serial2.println(millis()-tini);
+      //Serial2.print("   Recibidos:"); Serial2.print(bytesrec); Serial2.println(" bytes:"); 
+      //for (int i=0; i<BUFFER_I2C_LEN; i++) { Serial2.print(spval[i]); Serial2.print(" ");}
+      //Serial2.println();
       }
-    Serial2.println(); 
     }
   return 0;
 }
 
-void setFilterLyraT(uint16_t min_f, uint16_t max_f)
+void sendFilterLyraT(uint16_t min_f, uint16_t max_f)
 {
     datalyra.comtype=1;   // set filter
     datalyra.min_f=min_f;
@@ -37,15 +49,28 @@ void setFilterLyraT(uint16_t min_f, uint16_t max_f)
     sendtoLyraT(datalyra.comtype);
 }
 
-void setGainLyraT(uint16_t gain)
+void sendGainLyraT(uint16_t gain)
 {
     datalyra.comtype=2;   // set gain
     datalyra.gain=gain;  
-    sendtoLyraT(datalyra.comtype);
+    sendtoLyraT(2);
 }
 
 void getSpectrumLyraT()
 {
-    datalyra.comtype=3;   // set gain
-    sendtoLyraT(datalyra.comtype);
+    datalyra.comtype=3;   // get spectrum
+    sendtoLyraT(3);
+}
+void sendVolumeLyraT(uint16_t volume)
+{
+    datalyra.comtype=4;   // set volume
+    datalyra.volume=volume;  
+    sendtoLyraT(4);
+}
+
+void sendSpectrumScaleLyraT(uint16_t spscale)
+{
+    datalyra.comtype=5;   // set spectrum scale
+    datalyra.spscale=spscale;  
+    sendtoLyraT(5);
 }

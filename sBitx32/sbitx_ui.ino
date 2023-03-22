@@ -86,7 +86,7 @@ int GetI2CSmeterValue(int valueType)
     Wire.write(valueType);                  //Y : Get Value Type
     Wire.endTransmission();
     }
-  Wire.requestFrom(I2CMETER_ADDR, 1);
+  int bytesrec = Wire.requestFrom(I2CMETER_ADDR, 1);
   return Wire.available() > 0?Wire.read():0;
 }
 

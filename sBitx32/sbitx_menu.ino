@@ -134,6 +134,9 @@ uint32_t getValByKnob(int valueType, int targetValue, int minValue, int maxValue
         { 
         setTPAGain(targetValue);
         }
+      else if (valueType==29) { sendVolumeLyraT(targetValue);  }          // set volume to LyraT
+      else if (valueType==30) { sendGainLyraT(targetValue);  }            // set gain to LyraT
+      else if (valueType==31) { sendSpectrumScaleLyraT(targetValue);  }   // set spectrum scale to LyraT
       }  
     if ((valueType>=11) && (valueType<=18))        // analog KEYER setting
       {
@@ -158,6 +161,7 @@ uint32_t getValByKnob(int valueType, int targetValue, int minValue, int maxValue
     else if (valueType==25) { si5351bx_setfreqNOLIMIT(0, targetValue);  }  // set OSC1 x1000
     else if (valueType==26) { si5351bx_setfreqNOLIMIT(1, targetValue);  }  // set OSC2 x1000
     else if (valueType==27) { si5351bx_setfreqNOLIMIT(2, targetValue);  }  // set OSC2 x1000
+        
     int auxres=checkYN();
     if (auxres==0) 
       return targetValue;
@@ -165,7 +169,7 @@ uint32_t getValByKnob(int valueType, int targetValue, int minValue, int maxValue
       return antvalue;
     Check_Cat(0);  //To prevent disconnections
     }  
-  s2("targetValue:"); s2(targetValue);s2(crlf);
+  //s2("targetValue:"); s2(targetValue);s2(crlf);
   return targetValue;
 }
 

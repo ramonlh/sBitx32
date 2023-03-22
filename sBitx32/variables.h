@@ -166,7 +166,10 @@
       unsigned int audioupper=3400;   // límite inferior banda ssb
       uint8_t optimalmode=0;        // indica si utilizar la opción de filtros óptima
       unsigned int audiopitch=1500; // audio filter pitch
-      uint8_t LIBRE5[344];          // Reservados usos futuros
+      unsigned int audiovolume=50; // audio volume LyraT
+      unsigned int audiogain=500;  // audio gain LyraT
+      unsigned int spscale=50;    // spectrum scale LyraT
+      uint8_t LIBRE5[338];          // Reservados usos futuros
 } conftype;
       conftype conf;
       uint8_t *buffconf = (uint8_t *) &conf; // acceder a conf2 como bytes
@@ -212,6 +215,7 @@ char auxtft[30];                // 30 bytes, auxiliar para varios
 byte nTemp=0;                  // número sondas detectadas en cada puerto 1-wire
 uint8_t addr1Wire[maxTemp][8];  // tiene los valores conectados
 unsigned long mact01,mact1,mact2,mact10,mact60,mact3600; 
+unsigned long mactwaterfall;
 int nAP=0;                      // 2 bytes, redes encontradas con scanAP
 int nAPact=0;                   // 2 bytes, redes actual
 unsigned long countfaulttime=29999;       // veces que ha fallado la sincronización
@@ -276,7 +280,8 @@ float wFORc;
 float wREFc;
 
 // spectrum values
-int spval[250];
+uint8_t spval[BUFFER_I2C_LEN];
+uint8_t spvalold[BUFFER_I2C_LEN];
 boolean readingspectrum=false;
 int maxvalspectrum=0;
 unsigned long lasttimeknob=0;
@@ -531,6 +536,9 @@ void initConf()
   conf.df2=2570;        // ancho de banda filtro 2
   conf.audiolower=300;    // límite inferior banda ssb
   conf.audioupper=3400;   // límite inferior banda ssb
+  conf.audiopitch=1500;   // pitch
+  conf.audiogain=500;    // gain
+  conf.audiovolume=30;    // volume
   conf.optimalmode=0;
   memset(conf.LIBRE5,0,sizeof(conf.LIBRE5));                 // Reservados usos futuros
   conf.gen0=11056000;

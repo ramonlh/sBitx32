@@ -52,7 +52,7 @@
  *  The Wire.h library is used to talk to the Si5351 and we also declare an instance of 
  *  Si5351 object to control the clocks.
  */
- 
+
 #include "defines.h"              
 #include "variables.h"                // include 
 #include "commontexts.h"              
@@ -571,39 +571,44 @@ void setFreq(int s)
   displayFreq(1,1,1,1);
 }
 
-int modeencoder=0;    // tunning
+int modeencoder=0;    // 0:tunning, 1:volume, 2:gain, 3:spectrum scale, 4,5,6: filter
+int modefunction=0;   // modifica el comportamiento del botón principal
+int waterfallenable=1;
 
 void setAudioFilter(int mode, int s)
 {
   if ((s<-2) || (s>2)) return;
-  if (mode==1)    // audiolower
+  if (mode==4)    // audiolower
     {
     audiolowerold=conf.audiolower;
     conf.audiolower=conf.audiolower+(20*s);
-    if (conf.audiolower<40) conf.audiolower=40; 
+    if (conf.audiolower<20) conf.audiolower=20; 
     if (conf.audiolower>conf.audioupper) conf.audiolower=conf.audioupper;
-    setFilterLyraT(conf.audiolower,conf.audioupper);
-    displaySpectrum(10,135,250,70);
+    sendFilterLyraT(conf.audiolower,conf.audioupper);
+    displaySpectrum(10,135,256,70,1);
     displaybtFilter();
+    saveconf();
     }
-  else if (mode==2)    // audioupper
+  else if (mode==5)    // audioupper
     {
     audioupperold=conf.audioupper;
     conf.audioupper=conf.audioupper+(20*s);  
-    if (conf.audioupper>=5000) conf.audioupper=5000; 
+    if (conf.audioupper>=12000) conf.audioupper=12000; 
     if (conf.audioupper<conf.audiolower) conf.audioupper=conf.audiolower;
-    setFilterLyraT(conf.audiolower,conf.audioupper);
-    displaySpectrum(10,135,250,70);
+    sendFilterLyraT(conf.audiolower,conf.audioupper);
+    displaySpectrum(10,135,256,70,1);
     displaybtFilter();
+    saveconf();
     }
-  else if (mode==3)    // audiopitch
+  else if (mode==6)    // audiopitch
     {
     audiopitchold=conf.audiopitch;
     conf.audiopitch=conf.audiopitch+(20*s);  
     if (conf.audiopitch<100) conf.audiopitch=100; 
     if (conf.audiopitch>5000) conf.audiopitch=5000; 
-    displaySpectrum(10,135,250,70);
+    displaySpectrum(10,135,256,70,1);
     displaybtFilter();
+    saveconf();
     }
 }
 
@@ -624,10 +629,26 @@ void doTuningWithThresHold(){
   encodedSumValue = 0;
   if (modeencoder==0)   // tunning
     {
+    waterfallenable=0;
+    mactwaterfall=millis();
     setFreq(s);
+    getSpectrumLyraT();
+    displaySpectrum(10,135,256,70,1);
     displayFrame();
     }
-  else if (modeencoder<=3)  // audiolower, audioupper, audiopitch
+  else if (modeencoder==1)  // volume
+    {
+      
+    }
+  else if (modeencoder==2)  // gain
+    {
+      
+    }
+  else if (modeencoder==3)  // spectrum scale
+    {
+      
+    }
+  else if (modeencoder<=6)  // audiolower, audioupper, audiopitch
     {
     setAudioFilter(modeencoder,s);  
     }
@@ -1266,7 +1287,7 @@ void initADS()
 void initI2C()
 {
   Wire.begin(SDA,SCL);
-  //Wire.setClock(400000);
+  Wire.setClock(800000);
 }
 
 void setCAP(uint8_t nservo, int16_t angle)
@@ -1411,9 +1432,24 @@ void initUDPS()
 
 void initWS() { wsserver.listen(conf.wsPort); }
 
+void initLyraT()
+{
+  sendVolumeLyraT(conf.audiovolume); 
+  delay(200);
+  sendFilterLyraT(conf.audiolower,conf.audioupper);
+  delay(200);
+  sendGainLyraT(conf.audiogain);
+  delay(200);
+  sendSpectrumScaleLyraT(conf.spscale);
+  delay(200);
+  getSpectrumLyraT();
+  delay(200);
+}
+
 void setup()
 {
   initSerial2(115200);  
+  Serial2.print("CPU:"); Serial2.println(getCpuFrequencyMhz()); //Get CPU clock
   EEPROM.begin(EEPROM_SIZE);
   initConf();
   conf.connMode=1;
@@ -1449,12 +1485,8 @@ void setup()
   int8_t power;
   int auxerr=esp_wifi_get_max_tx_power(&power);
   Serial2.print("radio power:");Serial2.println(power);
-  setFilterLyraT(conf.audiolower,conf.audioupper);
-  delay(500);
-  setGainLyraT(1000);
-  delay(500);
-  getSpectrumLyraT();
-  delay(500);
+  initLyraT();
+  
   s2("END SETUP");s2(crlf);  
   s2("============================");s2(crlf);
   s2("Type 'h' to help"); s2(crlf); 
@@ -1522,7 +1554,17 @@ void task01() {
     displaySmeter(190,210,50,1); 
     }
   if (tftpage==23) { updateDisplay(0); }
+  if ((tftpage==0) && (conf.framemode==0))
+    {
+    getSpectrumLyraT();
+    displaySpectrum(10,135,256,70,1);
+    displayWaterfall(10,140,256,MAXLINESWATERFALL);
+    }
   mact01=millis();
+  if ((millis()-mactwaterfall) > 500) 
+    {
+    waterfallenable=1;  
+    }
 }
 
 void sendData(byte c)
@@ -1589,6 +1631,7 @@ void task10() {
       }
     } 
   mact10=millis();
+  //getSpectrumLyraT();
 }
 
 void task3600() {
@@ -1754,8 +1797,43 @@ void loopaux()
 {
   countloop++;  
   tini=millis();
+  if (btnDown())
+    {
+    Serial2.println(modeencoder);
+    delay(200);
+    if (modeencoder==0)   
+      {
+      modeencoder=1;  // volume
+      conf.audiovolume=getValByKnob(29, conf.audiovolume, 0, 100, 1, "Volume", 1);
+      sendVolumeLyraT(conf.audiovolume);
+      saveconf();
+      //updateDisplay(1);
+      }
+    else if (modeencoder==1)   
+      {
+      modeencoder=2;  // gain
+      conf.audiogain=getValByKnob(30, conf.audiogain, 1, 100, 1, "Gain", 1);
+      sendGainLyraT(conf.audiogain);
+      saveconf();
+      //updateDisplay(1);
+      }
+    else if (modeencoder==2)   
+      {
+      modeencoder=3;  // spectrum scale
+      conf.spscale=getValByKnob(31, conf.spscale, 1, 100, 1, "Att spectr.", 1);
+      sendSpectrumScaleLyraT(conf.spscale);
+      saveconf();
+      //updateDisplay(1);
+      }
+    else if (modeencoder==3)   
+      {
+      modeencoder=0;
+      //updateDisplay(1);
+      }
+    return;   
+    }
+   
   //handleSerial();  
-
   if (conf.ftpenable) { handleFTP(); }
   if (webactive==1) 
     { 
@@ -1788,6 +1866,7 @@ void loopaux()
           {
           if (scanF>0) 
             { 
+            waterfallenable=0;
             doScanF();  
             displayFrame();
             if (conf.scanmode>0)
@@ -1797,6 +1876,7 @@ void loopaux()
             }
           else
             {
+            waterfallenable=1;
             if (conf.ritOn) {  doRIT();    }
             else 
               { 
