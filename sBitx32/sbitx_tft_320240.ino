@@ -1361,48 +1361,70 @@ uint32_t colorniv[10]={TFT_BLACK, TFT_NAVY, TFT_BLUE, TFT_CYAN, TFT_CYAN, TFT_GR
 void displayWaterfall(int x, int y, int w, int h)
 {
   if (waterfallenable==0) return;
+  if (scanF>0) return;
   // traza waterfall
   for (int j=0; j<h; j++)    // líneas
     {
     int jplusy=j+y;
     for (int i=0; i<BUFFER_I2C_LEN; i++)    // puntos de la línea
       {
-      tft.drawPixel(i+x, jplusy, colorniv[tabspectrum[j][i]/1]); 
+      tft.drawPixel(i+x, jplusy, colorniv[tabspectrum[j][i]/6]); 
       }
     }
+  
 }
 
-void displaySpectrum(int x, int y, int w, int h, int resol)
+void displayBandFilter(int x, int y, int w, int h, uint16_t micolor)
 {
+  tft.fillRect(x, y, w, h, micolor);
+}
+
+void displayPitch(int x, int y, int x2, int y2, uint16_t micolor)
+{
+  tft.drawLine(x,y,x2,y2,TFT_RED);
+}
+
+#define power2dB(x) (10*log10f(x))
+
+void displaySpectrum(int x, int y, int w, int h)
+{
+  //conf.spspan=12;   // 12khz,  24khz
   int xwdiv2=x+w/2;
   int yminus15=y-15;
   int yminus25=y-25;
-  resol=2;
   tft.setTextSize(1);
   drawStringB("Khz",x+60,y-13,30,12,TFT_BLACK,TFT_WHITE,1);
   drawStringB("Khz",x+180,y-13,30,12,TFT_BLACK,TFT_WHITE,1);
-  drawNumberB(conf.frequency/1000-6*resol,x,y-13,40,12,TFT_BLACK,TFT_WHITE,1);
+  drawNumberB(conf.frequency/1000-6*conf.spspan/12,x,y-13,40,12,TFT_BLACK,TFT_WHITE,1);
   drawNumberB(conf.frequency/1000,x+w/2-15,y-13,40,12,TFT_BLACK,TFT_WHITE,1);
-  drawNumberB(conf.frequency/1000+6*resol,x+w-40,y-13,40,12,TFT_BLACK,TFT_WHITE,1);
-  tft.fillRect(xwdiv2+audiolowerold/(50*resol), y-h, (audioupperold-audiolowerold)/(50*resol), h-15,TFT_BLACK);
-  tft.fillRect(xwdiv2+conf.audiolower/(50*resol), y-h, (conf.audioupper-conf.audiolower)/(50*resol), h-15,TFT_DARKGREY);
-  tft.drawLine(xwdiv2+audiopitchold/(50*resol),y-h,x+w/2+audiopitchold/(50*resol),y-15,TFT_BLACK);
+  drawNumberB(conf.frequency/1000+6*conf.spspan/12,x+w-40,y-13,40,12,TFT_BLACK,TFT_WHITE,1);
+//  tft.fillRect(xwdiv2+audiolowerold/(50*conf.spspan/12), y-h, (audioupperold-audiolowerold)/(50*conf.spspan/12), h-15,TFT_BLACK);
+//  tft.fillRect(xwdiv2+conf.audiolower/(50*conf.spspan/12), y-h, (conf.audioupper-conf.audiolower)/(50*conf.spspan/12), h-15,TFT_DARKGREY);
+  displayBandFilter(xwdiv2+audiolowerold/(50*conf.spspan/12), y-h, (audioupperold-audiolowerold)/(50*conf.spspan/12), h-15,TFT_BLACK);
+  displayBandFilter(xwdiv2+conf.audiolower/(50*conf.spspan/12), y-h, (conf.audioupper-conf.audiolower)/(50*conf.spspan/12), h-15,TFT_DARKGREY);
+ 
+  tft.drawLine(xwdiv2+audiopitchold/(50*conf.spspan/12),y-h,x+w/2+audiopitchold/(50*conf.spspan/12),y-15,TFT_BLACK);
   for (int i=0; i<12; i++)    // líneas bajas cada 1 kHz
     {
     int ipor10=i*10;
     tft.drawFastVLine(xwdiv2+ipor10, yminus25, 10, TFT_DARKGREY);
     tft.drawFastVLine(xwdiv2-ipor10, yminus25, 10, TFT_DARKGREY);
     }
-  int yaux = y-16;
+  int yaux=y-16;
   for (int i=0; i<w; i++)     // gráfica
     { 
       int xaux = x+i;
-      tft.drawFastVLine(xaux,yaux-spvalold[i],spvalold[i],TFT_BLACK);
-      tft.drawFastVLine(xaux,yaux-spval[i],spval[i],TFT_GREEN);
-    } 
+      if (spval[i]<0) spval[i]=0; if (spval[i]>h-10) spval[i]=h-10;
+      int yold=spvalold[i];
+      int yact=spval[i];
+      tft.drawFastVLine(xaux,yaux-yold,yold,TFT_BLACK);
+      tft.drawFastVLine(xaux,yaux-yact,yact,TFT_GREEN);
+      spvalold[i]=spval[i];
+      } 
   tft.drawLine(x+w/2,y-h-5,x+w/2,y-15,TFT_WHITE);
   tft.drawLine(x,y-15,x+w,y-15,TFT_WHITE);
-  tft.drawLine(x+w/2+conf.audiopitch/(50*resol),y-h,x+w/2+conf.audiopitch/(50*resol),y-15,TFT_RED);
+  displayPitch(x+w/2+conf.audiopitch/(50*conf.spspan/12),y-h,x+w/2+conf.audiopitch/(50*conf.spspan/12),y-15,TFT_RED);
+
   // calcula valores waterfall
   for (int i=0; i<MAXLINESWATERFALL-1; i++)   // scroll lines down
     {
@@ -1421,7 +1443,7 @@ void displayFrame()
 {
   if (conf.framemode==0) 
     {
-      displaySpectrum(10,135,256,70,1);
+      displaySpectrum(10,135,256,70);
       displayWaterfall(10,138,256,MAXLINESWATERFALL);
       displaybtFilter();
       displaybtFunction();

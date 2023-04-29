@@ -73,7 +73,7 @@
 #include "DallasTemperature.h"        // Local
 #include "sbitx.h"
 #include "sbitx_eemap.h"
-#include "Adafruit_ADS1015.h"
+#include "Adafruit_ADS1X15.h"
 #include <ESP32Servo.h>
 #include "RemoteDebug.h"        //https://github.com/JoaoLopesF/RemoteDebug
 #include <PubSubClient.h>
@@ -585,7 +585,7 @@ void setAudioFilter(int mode, int s)
     if (conf.audiolower<20) conf.audiolower=20; 
     if (conf.audiolower>conf.audioupper) conf.audiolower=conf.audioupper;
     sendFilterLyraT(conf.audiolower,conf.audioupper);
-    displaySpectrum(10,135,256,70,1);
+    displaySpectrum(10,135,256,70);
     displaybtFilter();
     saveconf();
     }
@@ -596,7 +596,7 @@ void setAudioFilter(int mode, int s)
     if (conf.audioupper>=12000) conf.audioupper=12000; 
     if (conf.audioupper<conf.audiolower) conf.audioupper=conf.audiolower;
     sendFilterLyraT(conf.audiolower,conf.audioupper);
-    displaySpectrum(10,135,256,70,1);
+    displaySpectrum(10,135,256,70);
     displaybtFilter();
     saveconf();
     }
@@ -606,7 +606,7 @@ void setAudioFilter(int mode, int s)
     conf.audiopitch=conf.audiopitch+(20*s);  
     if (conf.audiopitch<100) conf.audiopitch=100; 
     if (conf.audiopitch>5000) conf.audiopitch=5000; 
-    displaySpectrum(10,135,256,70,1);
+    displaySpectrum(10,135,256,70);
     displaybtFilter();
     saveconf();
     }
@@ -633,22 +633,10 @@ void doTuningWithThresHold(){
     mactwaterfall=millis();
     setFreq(s);
     getSpectrumLyraT();
-    displaySpectrum(10,135,256,70,1);
+    displaySpectrum(10,135,256,70);
     displayFrame();
     }
-  else if (modeencoder==1)  // volume
-    {
-      
-    }
-  else if (modeencoder==2)  // gain
-    {
-      
-    }
-  else if (modeencoder==3)  // spectrum scale
-    {
-      
-    }
-  else if (modeencoder<=6)  // audiolower, audioupper, audiopitch
+  else if ((modeencoder>=4) && (modeencoder<=6))  // audiolower, audioupper, audiopitch
     {
     setAudioFilter(modeencoder,s);  
     }
@@ -1440,9 +1428,11 @@ void initLyraT()
   delay(200);
   sendGainLyraT(conf.audiogain);
   delay(200);
-  sendSpectrumScaleLyraT(conf.spscale);
+  sendSpectrumAttLyraT(conf.spatt);
   delay(200);
-  getSpectrumLyraT();
+  sendSpectrumSpanLyraT(conf.spspan);
+  delay(200);
+
   delay(200);
 }
 
@@ -1557,7 +1547,7 @@ void task01() {
   if ((tftpage==0) && (conf.framemode==0))
     {
     getSpectrumLyraT();
-    displaySpectrum(10,135,256,70,1);
+    displaySpectrum(10,135,256,70);
     displayWaterfall(10,140,256,MAXLINESWATERFALL);
     }
   mact01=millis();
@@ -1799,38 +1789,66 @@ void loopaux()
   tini=millis();
   if (btnDown())
     {
-    Serial2.println(modeencoder);
     delay(200);
-    if (modeencoder==0)   
+    if (modefunction==0)
       {
-      modeencoder=1;  // volume
-      conf.audiovolume=getValByKnob(29, conf.audiovolume, 0, 100, 1, "Volume", 1);
-      sendVolumeLyraT(conf.audiovolume);
-      saveconf();
-      //updateDisplay(1);
+      if (modeencoder==0)   
+        {
+        modeencoder=1;  // volume
+        conf.audiovolume=getValByKnob(29, conf.audiovolume, 0, 100, 1, "Volume", 1);
+        sendVolumeLyraT(conf.audiovolume);
+        saveconf();
+        }
+      else if (modeencoder==1)   
+        {
+        modeencoder=2;  // gain
+        conf.audiogain=getValByKnob(30, conf.audiogain, 1, 1000, 10, "Gain", 1);
+        sendGainLyraT(conf.audiogain);
+        saveconf();
+        }
+      else if (modeencoder==2)   
+        {
+        modeencoder=3;  // spectrum att
+        conf.spatt=getValByKnob(31, conf.spatt, 1, 100, 1, "Sp. Att", 1);
+        sendSpectrumAttLyraT(conf.spatt);
+        saveconf();
+        }
+      else if (modeencoder==3)   
+        {
+        modeencoder=4;  // spectrum attle
+        conf.spspan=getValByKnob(32, conf.spspan, 12, 24, 12, "Span khz", 1);
+        sendSpectrumSpanLyraT(conf.spspan);
+        saveconf();
+        }
+      else if (modeencoder>=4)   
+        {
+        modeencoder=0;
+        updateDisplay(1);
+        }
+      return;   
       }
-    else if (modeencoder==1)   
-      {
-      modeencoder=2;  // gain
-      conf.audiogain=getValByKnob(30, conf.audiogain, 1, 100, 1, "Gain", 1);
-      sendGainLyraT(conf.audiogain);
-      saveconf();
-      //updateDisplay(1);
-      }
-    else if (modeencoder==2)   
-      {
-      modeencoder=3;  // spectrum scale
-      conf.spscale=getValByKnob(31, conf.spscale, 1, 100, 1, "Att spectr.", 1);
-      sendSpectrumScaleLyraT(conf.spscale);
-      saveconf();
-      //updateDisplay(1);
-      }
-    else if (modeencoder==3)   
-      {
-      modeencoder=0;
-      //updateDisplay(1);
-      }
-    return;   
+    else
+      if (modeencoder==0)   
+        {
+        modeencoder=4;  // low filter
+        displaybtFilter();
+        }
+      else if (modeencoder==4)   
+        {
+        modeencoder=5;  // high filter
+        displaybtFilter();
+        }
+      else if (modeencoder==5)   
+        {
+        modeencoder=6;  // pitch
+        displaybtFilter();
+        } 
+      else if (modeencoder>=6)   
+        {
+        modeencoder=0;
+        displaybtFilter();
+        }
+      return;   
     }
    
   //handleSerial();  
@@ -1866,7 +1884,6 @@ void loopaux()
           {
           if (scanF>0) 
             { 
-            waterfallenable=0;
             doScanF();  
             displayFrame();
             if (conf.scanmode>0)
@@ -1876,7 +1893,6 @@ void loopaux()
             }
           else
             {
-            waterfallenable=1;
             if (conf.ritOn) {  doRIT();    }
             else 
               { 

@@ -168,8 +168,9 @@
       unsigned int audiopitch=1500; // audio filter pitch
       unsigned int audiovolume=50; // audio volume LyraT
       unsigned int audiogain=500;  // audio gain LyraT
-      unsigned int spscale=50;    // spectrum scale LyraT
-      uint8_t LIBRE5[338];          // Reservados usos futuros
+      unsigned int spatt=50;    // spectrum scale LyraT
+      unsigned int spspan=1;     // spectrum span LyraT
+      uint8_t LIBRE5[336];          // Reservados usos futuros
 } conftype;
       conftype conf;
       uint8_t *buffconf = (uint8_t *) &conf; // acceder a conf2 como bytes

@@ -4,7 +4,8 @@ typedef struct {    // datos I2C lyraT
       uint16_t min_f;    // lim inferior filtro
       uint16_t max_f;    // lim superior filtro
       uint16_t gain;     // gain
-      uint16_t spscale;  // spectrum scale
+      uint16_t spspan;   // spectrum span 
+      uint16_t spatt;      // spectrum att
       uint16_t volume;   // volume
       uint16_t ssbmode;  // lsb/usb
       uint16_t cwmode;   // cwmode
@@ -24,13 +25,11 @@ int sendtoLyraT(int valueType)
       {
         ////////////////////////////////////////////////////
       long tini=millis();
-      int count=0;
+      int i=0;
       int bytesrec = Wire.requestFrom(LYRAT_ADDRESS, BUFFER_I2C_LEN, 1);
       while(Wire.available()) {
-        spvalold[count] = spval[count];
-        spval[count] = Wire.read();
-        if (spval[count]>60) spval[count]=60;
-        count++;
+        spval[i] = Wire.read();
+        i++;
         }
       //Serial2.print("  Time:"); Serial2.println(millis()-tini);
       //Serial2.print("   Recibidos:"); Serial2.print(bytesrec); Serial2.println(" bytes:"); 
@@ -68,9 +67,16 @@ void sendVolumeLyraT(uint16_t volume)
     sendtoLyraT(4);
 }
 
-void sendSpectrumScaleLyraT(uint16_t spscale)
+void sendSpectrumAttLyraT(uint16_t spatt)
 {
     datalyra.comtype=5;   // set spectrum scale
-    datalyra.spscale=spscale;  
+    datalyra.spatt=spatt;  
     sendtoLyraT(5);
+}
+
+void sendSpectrumSpanLyraT(uint16_t spspan)
+{
+    datalyra.comtype=6;   // set spectrum span
+    datalyra.spspan=spspan;  
+    sendtoLyraT(6);
 }
