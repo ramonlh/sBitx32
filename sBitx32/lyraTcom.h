@@ -29,12 +29,9 @@ int sendtoLyraT(int valueType)
       int bytesrec = Wire.requestFrom(LYRAT_ADDRESS, BUFFER_I2C_LEN, 1);
       while(Wire.available()) {
         spval[i] = Wire.read();
+        if (spval[i]>= 128) spval[i]=0;
         i++;
         }
-      //Serial2.print("  Time:"); Serial2.println(millis()-tini);
-      //Serial2.print("   Recibidos:"); Serial2.print(bytesrec); Serial2.println(" bytes:"); 
-      //for (int i=0; i<BUFFER_I2C_LEN; i++) { Serial2.print(spval[i]); Serial2.print(" ");}
-      //Serial2.println();
       }
     }
   return 0;
@@ -52,31 +49,32 @@ void sendGainLyraT(uint16_t gain)
 {
     datalyra.comtype=2;   // set gain
     datalyra.gain=gain;  
-    sendtoLyraT(2);
+    sendtoLyraT(datalyra.comtype);
 }
 
 void getSpectrumLyraT()
 {
     datalyra.comtype=3;   // get spectrum
-    sendtoLyraT(3);
+    sendtoLyraT(datalyra.comtype);
 }
+
 void sendVolumeLyraT(uint16_t volume)
 {
     datalyra.comtype=4;   // set volume
     datalyra.volume=volume;  
-    sendtoLyraT(4);
+    sendtoLyraT(datalyra.comtype);
 }
 
 void sendSpectrumAttLyraT(uint16_t spatt)
 {
     datalyra.comtype=5;   // set spectrum scale
     datalyra.spatt=spatt;  
-    sendtoLyraT(5);
+    sendtoLyraT(datalyra.comtype);
 }
 
 void sendSpectrumSpanLyraT(uint16_t spspan)
 {
     datalyra.comtype=6;   // set spectrum span
     datalyra.spspan=spspan;  
-    sendtoLyraT(6);
+    sendtoLyraT(datalyra.comtype);
 }

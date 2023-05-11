@@ -172,13 +172,13 @@ void initOscillators(){
   si5351bx_vcoa = (SI5351BX_XTAL * SI5351BX_MSA) + conf.calibration; // apply the calibration correction factor
   unsigned long appliedCarrier = ((conf.cwMode==0?conf.usbCarrier:conf.cwmCarrier)+(isIFShift&&(inTx==0)?conf.ifShiftValue:0));
   OSC0 = 0;  
-  OSC1 = 40035000;    // BFO - freq
+  OSC1 = bfo_freq;    // BFO - freq
   delay(200);
   si5351bx_setfreq(0, OSC0); 
   delay(200);
-  si5351bx_setfreq(1, OSC1); 
+  si5351bx_setfreq(1, OSC1+adjust_freq1); 
   delay(200);
-  si5351bx_setfreq(1, OSC1); 
+  si5351bx_setfreq(1, OSC1+adjust_freq1); 
 }
 
 //============================================================

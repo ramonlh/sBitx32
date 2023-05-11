@@ -138,6 +138,9 @@ uint32_t getValByKnob(int valueType, int targetValue, int minValue, int maxValue
       else if (valueType==30) { sendGainLyraT(targetValue);  }            // set gain to LyraT
       else if (valueType==31) { sendSpectrumAttLyraT(targetValue);  }     // set spectrum att to LyraT
       else if (valueType==32) { sendSpectrumSpanLyraT(targetValue);  }    // set spectrum span to LyraT
+      else if (valueType==33) {  }    // 
+      else if (valueType==34) {  }    // 
+      else if (valueType==35) {  }    // 
       }  
     if ((valueType>=11) && (valueType<=18))        // analog KEYER setting
       {

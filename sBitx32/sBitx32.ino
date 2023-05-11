@@ -1,3 +1,5 @@
+
+
 //Firmware Version
 //    This firmware hass been gradually changed based on the original firmware 
 //    created by Farhan, Jack, Jerry and others and KD8CEC.
@@ -22,7 +24,7 @@
 *********************************************/
 
 /**
- Cat Suppoort uBITX CEC Version 
+ Cat Support uBITX CEC Version 
  This firmware has been gradually changed based on the original firmware created by Farhan, Jack, Jerry and others.
  Most features(TX, Frequency Range, Ham Band, TX Control, CW delay, start Delay... more) have been added by KD8CEC.
  My wish is to keep the original author's Comment as long as the meaning does not change much, even if the code looks a bit long.
@@ -68,13 +70,13 @@
 #include "SPIFFS.h"
 #include <HTTPClient.h>
 #include <EEPROM.h>
-#include <TFT_eSPI.h>     // Graphics and font library for ILI9341 driver chip
+#include <TFT_eSPI.h>                 // Graphics and font library for ILI9341 driver chip
 #include "OneWire.h"                  // Local
 #include "DallasTemperature.h"        // Local
 #include "sbitx.h"
 #include "sbitx_eemap.h"
 #include "Adafruit_ADS1X15.h"
-#include <ESP32Servo.h>
+#include <ESP32_Servo.h>
 #include "RemoteDebug.h"        //https://github.com/JoaoLopesF/RemoteDebug
 #include <PubSubClient.h>
 #include "Adafruit_TPA2016.h"
@@ -83,6 +85,7 @@
 #include "esp_wifi.h"
 #include <Adafruit_PWMServoDriver.h>
 #include "lyraTcom.h"
+#include <analogWrite.h>
 
 WiFiServer tcpserver;
 WiFiUDP udpsmeter, udpfreq, ntpUDP;
@@ -91,12 +94,16 @@ WebsocketsServer wsserver;
 WebsocketsClient wsclient;    
 
 TFT_eSPI tft=TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
+TFT_eSprite wfall = TFT_eSprite(&tft); // Sprite object graph1
+
 FtpServer ftpSrv;   //set #define FTP_DEBUG in ESP8266FtpServer.h to see ftp verbose on serial
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org");
 OneWire owire(W0);
 DallasTemperature sensors0(&owire);
-Adafruit_ADS1115 adsA(0x48);  /* Use this for the 16-bit version */
-Adafruit_ADS1115 adsB(0x49);  /* Use this for the 16-bit version */
+Adafruit_ADS1115 adsA;  /* Use this for the 16-bit version */
+Adafruit_ADS1115 adsB;  /* Use this for the 16-bit version */
+//Adafruit_ADS1115 adsA(0x48);  /* Use this for the 16-bit version */
+//Adafruit_ADS1115 adsB(0x49);  /* Use this for the 16-bit version */
 WebServer server(webportdefault);
 RemoteDebug Debug;
 WiFiClient espClient;
@@ -111,6 +118,10 @@ Adafruit_PWMServoDriver servos = Adafruit_PWMServoDriver();
 
 extern int enc_read(void);
 
+#define WIRE_CLOCK 800000     // default = 100000
+#define bfo_freq 40035000
+#define adjust_freq1 8000
+#define adjust_freq2 10000
 //When the frequency is moved by the dial, the maximum value by KD8CEC
 #define LOWEST_FREQ_DIAL  (3000l)
 #define HIGHEST_FREQ_DIAL (60000000l)
@@ -139,7 +150,7 @@ byte autoCWSendReservCount = 0;             //Reserve CW Text Cound
 byte sendingCWTextIndex = 0;                //cw auto seding Text Index
 
 #include "basicfunctions.h"            // include
-#include "htmlFunctions.h"             // include
+#include "htmlfunctions.h"             // include
 #include "cwdecode.h"
 
 boolean txCAT = false;        //turned on if the transmitting due to a CAT command
@@ -309,52 +320,37 @@ void setOSCCurves(unsigned long f)
 {
   
 }
-/***********
-void setFrequency(unsigned long f){
-  setTXFilters(f);
-  conf.frequency=f;
-  if (conf.optimalmode==0)         
-    setOSCNormal(conf.frequency); // normal mode
-  else      
-    setOSCOPTIMAL(conf.frequency);  // optimal mode
-  if (inTx == 1)
-    if (conf.cwMode > 0)
-      {
-      OSC0=0;
-      OSC1=0;  
-      if (conf.isUSB==1)
-        OSC2=conf.frequency + conf.sideTone;
-      else
-        OSC2=conf.frequency - conf.sideTone;
-      }
-  si5351bx_setfreq(2, OSC2); 
-  si5351bx_setfreq(1, OSC1);
-  si5351bx_setfreq(0, OSC0);
-  tini=millis();
-  conf.actualBand=getIndexHambanBbyFreq(f);
-  if (conf.actualBand != 99) 
-    conf.freqbyband[conf.actualBand][conf.vfoActive==VFO_A?0:1]=f; 
-  if (conf.vfoActive==VFO_A) conf.frequencyA=f; else conf.frequencyB=f;  
-  if (scanF==0)
-    {
-    if (!readingspectrum)
-      {
-      sendData(tcpfrequency);  
-      }
-    }
-  else 
-    {
-    sendData(tcpfrequency);  
-    }
-}
-*****************/
+
+#define TUNING_SHIFT 0
 
 void setFrequency(unsigned long f){
   conf.frequency=f;
   setTXFilters(f);
-  OSC2 = f + 40035000 - 24000;
-  si5351bx_setfreq(2, OSC2);   // 
+  // aquí hay que poner las variantes según el modo USB, LSB y CW
+  if (conf.cwMode == 1)
+    OSC2 = f + bfo_freq - 24000 - sideTonePitch;
+  else  // SSB
+    OSC2 = f + bfo_freq - 24000;
+  si5351bx_setfreq(2, OSC2 + adjust_freq2);   // 
 }
+
+/* original con Raspberry
+ *  // ejemplo USB, freq recibida = 10.000.000 Hz
+ *  // OSC2 = 10 000 000 + 40 035 000 - 24000 = 50 011 000
+ *  // OSC1 = 40 035 000
+void radio_tune_to(u_int32_t f){
+  if (rx_list->mode == MODE_CW)
+    si5351bx_setfreq(2, f + bfo_freq - 24000 + TUNING_SHIFT - rx_pitch);
+  else if (rx_list->mode == MODE_CWR)
+    si5351bx_setfreq(2, f + bfo_freq - 24000 + TUNING_SHIFT + rx_pitch);
+  else
+    si5351bx_setfreq(2, f + bfo_freq - 24000 + TUNING_SHIFT);
+  // TUNING_SHIFT = 0;
+  // bfo_freq = 40035000
+  //printf("Setting radio to %d\n", f);
+}
+*/
+
 
 void curvemode()
 {
@@ -573,7 +569,6 @@ void setFreq(int s)
 
 int modeencoder=0;    // 0:tunning, 1:volume, 2:gain, 3:spectrum scale, 4,5,6: filter
 int modefunction=0;   // modifica el comportamiento del botón principal
-int waterfallenable=1;
 
 void setAudioFilter(int mode, int s)
 {
@@ -629,12 +624,7 @@ void doTuningWithThresHold(){
   encodedSumValue = 0;
   if (modeencoder==0)   // tunning
     {
-    waterfallenable=0;
-    mactwaterfall=millis();
-    setFreq(s);
-    getSpectrumLyraT();
-    displaySpectrum(10,135,256,70);
-    displayFrame();
+    setFreq(s);         // 5 ms
     }
   else if ((modeencoder>=4) && (modeencoder<=6))  // audiolower, audioupper, audiopitch
     {
@@ -964,7 +954,7 @@ void sendTemp()
 
 void task1() {
   tini=millis();
-  readVIpower();
+  //readVIpower();
   countfaulttime++;   // si se hace mayor que TempDesactPrg,desactiva ejecucion programas dependientes de fecha
   if (inTx==1) {
     leevaloresOW();
@@ -1178,7 +1168,7 @@ void printstatus()
   s2("----------------");s2(crlf);
 }
 
-void execcomdebug() {
+void execcomserial() {
   char command=cinput;
   String param;
   param=sinput.substring(sinput.indexOf(",")+1);
@@ -1228,7 +1218,7 @@ void handleSerial()
     if (ejec)
       {
       if (conf.serial2Mode==0)    // modo debug
-        execcomdebug();
+        execcomserial();
       else
         {
         if ((conf.connMode==1) || (conf.connMode==2) || (conf.connMode==3))  // modo IP or Serial2-IP, mod Manager
@@ -1266,16 +1256,16 @@ void initDS18B20() {
 
 void initADS()
 {
-  adsA.begin();
+  adsA.begin(0x48);
   //adsA.setGain(GAIN_TWOTHIRDS);  // +/- 6.144V  1 bit = 0.1875mV (default)
-  adsB.begin();
+  adsB.begin(0x49);
   //adsB.setGain(GAIN_TWOTHIRDS);  // +/- 6.144V  1 bit = 0.1875mV (default)
 }
 
 void initI2C()
 {
   Wire.begin(SDA,SCL);
-  Wire.setClock(800000);
+  Wire.setClock(WIRE_CLOCK);
 }
 
 void setCAP(uint8_t nservo, int16_t angle)
@@ -1439,7 +1429,6 @@ void initLyraT()
 void setup()
 {
   initSerial2(115200);  
-  Serial2.print("CPU:"); Serial2.println(getCpuFrequencyMhz()); //Get CPU clock
   EEPROM.begin(EEPROM_SIZE);
   initConf();
   conf.connMode=1;
@@ -1448,6 +1437,7 @@ void setup()
   s2("  Serial 2 started"); s2(crlf);
   s2("  Vers.:"); s2(FIRMWARE_VERSION_INFO); s2(crlf);
   delay(10);
+  Serial2.print("CPU clock:"); Serial2.println(getCpuFrequencyMhz()); //Get CPU clock
   initTFT();          s2("TFT started");s2(crlf);
   DisplayVersionInfo(FIRMWARE_VERSION_INFO);
   initSPIFSS (true,true);  
@@ -1482,6 +1472,20 @@ void setup()
   s2("Type 'h' to help"); s2(crlf); 
   s2("----------------------------");s2(crlf);
   conf.connMode=auxconnMode;
+//#define VERIFY_TFT
+#if defined VERIFY_TFT
+#if defined ESP32
+  Serial2.print("ESP32:"); Serial2.println("defined");
+#endif  
+  Serial2.print("BITX: "); Serial2.println(BITX);
+  Serial2.print("TFT_RST: "); Serial2.println(TFT_RST);
+  Serial2.print("TFT_DC: "); Serial2.println(TFT_DC);
+  Serial2.print("TFT_MISO: "); Serial2.println(TFT_MISO);
+  Serial2.print("TFT_MOSI: "); Serial2.println(TFT_MOSI);
+  Serial2.print("TFT_SCLK: "); Serial2.println(TFT_SCLK);
+  Serial2.print("TFT_CS: "); Serial2.println(TFT_CS);
+  Serial2.print("TOUCH_CS: "); Serial2.println(TOUCH_CS);
+#endif
 }
 
 void ICACHE_FLASH_ATTR leevaloresOW()
@@ -1551,10 +1555,6 @@ void task01() {
     displayWaterfall(10,140,256,MAXLINESWATERFALL);
     }
   mact01=millis();
-  if ((millis()-mactwaterfall) > 500) 
-    {
-    waterfallenable=1;  
-    }
 }
 
 void sendData(byte c)
@@ -1621,7 +1621,6 @@ void task10() {
       }
     } 
   mact10=millis();
-  //getSpectrumLyraT();
 }
 
 void task3600() {
@@ -1789,6 +1788,7 @@ void loopaux()
   tini=millis();
   if (btnDown())
     {
+      Serial2.println(modefunction);
     delay(200);
     if (modefunction==0)
       {
@@ -1831,27 +1831,32 @@ void loopaux()
       if (modeencoder==0)   
         {
         modeencoder=4;  // low filter
-        displaybtFilter();
+        conf.audiolower=getValByKnob(33, conf.audiolower, 100, conf.audioupper-100, 100, "Low filt", 1);
+        sendFilterLyraT(conf.audiolower,conf.audioupper);
+        saveconf();
         }
       else if (modeencoder==4)   
         {
         modeencoder=5;  // high filter
-        displaybtFilter();
+        conf.audioupper=getValByKnob(34, conf.audioupper, conf.audioupper+100, 5000, 100, "High Fil.", 1);
+        sendFilterLyraT(conf.audiolower,conf.audioupper);
+        saveconf();
         }
       else if (modeencoder==5)   
         {
         modeencoder=6;  // pitch
-        displaybtFilter();
+        conf.audiopitch=getValByKnob(35, conf.audiopitch, 100, 5000, 100, "Pitch.", 1);
+        sendFilterLyraT(conf.audiolower,conf.audioupper);
+        saveconf();
         } 
       else if (modeencoder>=6)   
         {
         modeencoder=0;
-        displaybtFilter();
+        updateDisplay(1);
         }
       return;   
     }
-   
-  //handleSerial();  
+  handleSerial();  
   if (conf.ftpenable) { handleFTP(); }
   if (webactive==1) 
     { 
