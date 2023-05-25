@@ -85,6 +85,7 @@
 #include "esp_wifi.h"
 #include <Adafruit_PWMServoDriver.h>
 #include "lyraTcom.h"
+#include "vhf_module.h"
 #include <analogWrite.h>
 
 WiFiServer tcpserver;
@@ -118,7 +119,7 @@ Adafruit_PWMServoDriver servos = Adafruit_PWMServoDriver();
 
 extern int enc_read(void);
 
-#define WIRE_CLOCK 800000     // default = 100000
+#define WIRE_CLOCK 100000     // default = 100000
 #define bfo_freq 40035000
 #define adjust_freq1 8000
 #define adjust_freq2 10000
@@ -953,6 +954,8 @@ void sendTemp()
 }
 
 void task1() {
+  setvhffreqrx(435000);
+
   tini=millis();
   //readVIpower();
   countfaulttime++;   // si se hace mayor que TempDesactPrg,desactiva ejecucion programas dependientes de fecha
@@ -1749,7 +1752,7 @@ void handletcpS()
         String datarec = tcpclient.readStringUntil('\n'); 
         handleRecDataIP(c, datarec);
         }
-      //sendFreq(); // nodeberia ser necesario
+      //sendFreq(); // no deberia ser necesario
       loopaux();
       }
     webactive=1;

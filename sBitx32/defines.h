@@ -42,8 +42,9 @@
 #define despIFTTT 252   // valor para disparar IFTTT, 252
 #define timerf 100      // milisegundos mínimo para órdenes RF
 ////////////////////////////////////////////////////////////////////////////////////
-#define BMP085_ADDRESS 0x77  // I2C address of BMP085
-#define LYRAT_ADDRESS 0x32   // I2C address of LyraT
+#define BMP085_ADDRESS 0x77     // I2C address of BMP085
+#define LYRAT_ADDRESS 0x32      // I2C address of LyraT
+#define VHFMODULE_ADDRESS 0x33   // I2C address of VHFModule
 #define i2ctimeout 200
 #define BUFFER_I2C_LEN 255
 #define MAXLINESWATERFALL 60
